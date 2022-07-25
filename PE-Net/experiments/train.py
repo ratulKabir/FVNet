@@ -25,7 +25,8 @@ parser.add_argument('--model', default='front_pointnets_v1', help='Model name')
 parser.add_argument('--output_dir', default='../outputs', help='Log dir')
 parser.add_argument('--num_point', type=int, default=512, help='Point Number')  # ????
 parser.add_argument('--max_epoch', type=int, default=1001, help='Epoch to run')
-parser.add_argument('--batch_size', type=int, default=8, help='Batch Size during training')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch Size during training')
+parser.add_argument('--batch_size_eval', type=int, default=64, help='Batch Size during evaluation')
 parser.add_argument('--learning_rate', type=float, default=0.001, help='Initial learning rate')
 parser.add_argument('--momentum', type=float, default=0.9, help='Momentum')
 parser.add_argument('--optimizer', default='adam', help='adam')
@@ -42,6 +43,7 @@ MOMENTUM = FLAGS.momentum
 OPTIMIZER = FLAGS.optimizer
 BASE_LEARNING_RATE = FLAGS.learning_rate
 BATCH_SIZE = FLAGS.batch_size
+BATCH_SIZE_EVAL = FLAGS.batch_size_eval
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 NUM_CHANNEL = 4
@@ -64,7 +66,7 @@ os.system('cp -r ../experiments/ ../kitti/ ../models/ ../kitti_eval %s' % (LOG_D
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
-prefix = "/home/ratul/data/dataset/kitti_fvnet2/refinement/"
+prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/" # /home/ratul/data/dataset/kitti_fvnet2/refinement/   
 DATA_DIR = prefix + "training"
 TRAIN_LIST_FILE = prefix + "list_files/det_train_car_filtered.txt"
 TRAIN_LABEL_FILE = prefix + "list_files/label_train_car_filtered.txt"
@@ -150,11 +152,12 @@ def train_one_epoch(pe_net, optimizer):
         loss_list = MODEL.get_loss(batch_center, batch_angle_cls, batch_angle_res, batch_size_res, end_points, DEVICE)
         loss, center_loss, stage1_center_loss, h_cls_loss, \
         h_res_loss, s_res_loss, corners_loss = loss_list
-        total_loss = torch.sum(torch.as_tensor(loss_list))
-        total_loss.requires_grad = True
+        total_loss = loss
+        # total_loss = torch.sum(torch.as_tensor(loss_list))
+        # total_loss.requires_grad = True
 
         optimizer.zero_grad()
-        total_loss.backward()
+        loss.backward()
         optimizer.step()
 
         iou2ds, iou3ds = compute_box3d_iou(
@@ -163,6 +166,12 @@ def train_one_epoch(pe_net, optimizer):
             end_points['size_res'].detach().cpu().numpy(),
             batch_center.detach().cpu().numpy(), batch_angle_cls.detach().cpu().numpy(),
             batch_angle_res.detach().cpu().numpy(), batch_size_res.detach().cpu().numpy())
+        
+        del batch_data
+        del batch_center
+        del batch_angle_cls
+        del batch_angle_res
+        del batch_size_res
 
         end_points['iou2ds'] = iou2ds
         end_points['iou3ds'] = iou3ds
@@ -180,7 +189,7 @@ def train_one_epoch(pe_net, optimizer):
         iou3d_correct_cnt_50 += np.sum(iou3ds >= 0.5)
         iou3d_correct_cnt_70 += np.sum(iou3ds >= 0.7)
 
-        internal = 400
+        internal = 50
         if (batch_idx + 1) % internal == 0:
             log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
             log_string('mean total loss: %f' % (total_loss_sum / internal))
@@ -218,7 +227,7 @@ def eval_one_epoch(pe_net):
     log_string(str(datetime.now()))
     log_string('---- EPOCH %03d EVALUATION ----' % (EPOCH_CNT))
     val_idxs = np.arange(0, len(VAL_DATASET))
-    num_batches = int(np.ceil(len(VAL_DATASET) / BATCH_SIZE))
+    num_batches = int(np.ceil(len(VAL_DATASET) / BATCH_SIZE_EVAL))
 
     # To collect statistics
 
@@ -237,24 +246,25 @@ def eval_one_epoch(pe_net):
 
     # Simple evaluation with batches
     for batch_idx in range(num_batches):
-        start_idx = batch_idx * BATCH_SIZE
-        end_idx = (batch_idx + 1) * BATCH_SIZE
+        start_idx = batch_idx * BATCH_SIZE_EVAL
+        end_idx = (batch_idx + 1) * BATCH_SIZE_EVAL
 
-        batch_data = get_batch(VAL_DATASET, val_idxs, start_idx, end_idx, NUM_CHANNEL)
+        with torch.no_grad():
+            batch_data = get_batch(VAL_DATASET, val_idxs, start_idx, end_idx, NUM_CHANNEL)
 
-        batch_data, batch_center, \
-        batch_angle_cls, batch_angle_res, batch_size_res = [torch.from_numpy(data) for data in batch_data]
+            batch_data, batch_center, \
+            batch_angle_cls, batch_angle_res, batch_size_res = [torch.from_numpy(data).to(DEVICE) for data in batch_data]
 
-        pe_net.to(torch.device('cpu'))
-        end_points = pe_net(batch_data.permute(0, 2, 1).float()) # .to(DEVICE)
+            # pe_net.to(torch.device('cpu'))
+            end_points = pe_net(batch_data.permute(0, 2, 1).float()) # 
 
-        for key in end_points.keys():
-            end_points[key] = end_points[key].cpu()
+            for key in end_points.keys():
+                end_points[key] = end_points[key]#.cpu()
 
-        loss_list = MODEL.get_loss(batch_center, batch_angle_cls, batch_angle_res, batch_size_res, end_points, torch.device('cpu'))
-        loss, center_loss, stage1_center_loss, h_cls_loss, \
-        h_res_loss, s_res_loss, corners_loss = loss_list
-        total_loss = torch.sum(torch.as_tensor(loss_list))
+            loss_list = MODEL.get_loss(batch_center, batch_angle_cls, batch_angle_res, batch_size_res, end_points, DEVICE) # torch.device('cpu')
+            loss, center_loss, stage1_center_loss, h_cls_loss, \
+            h_res_loss, s_res_loss, corners_loss = loss_list
+            total_loss = loss
 
         # val_writer.add_summary(summary, step)
 
@@ -273,6 +283,12 @@ def eval_one_epoch(pe_net):
             batch_center.detach().cpu().numpy(), batch_angle_cls.detach().cpu().numpy(),
             batch_angle_res.detach().cpu().numpy(), batch_size_res.detach().cpu().numpy())
 
+        del batch_data
+        del batch_center
+        del batch_angle_cls
+        del batch_angle_res
+        del batch_size_res
+
         iou2ds_sum += np.sum(iou2ds)
         iou3ds_sum += np.sum(iou3ds)
         iou3d_correct_cnt_50 += np.sum(iou3ds >= 0.5)
@@ -287,12 +303,12 @@ def eval_one_epoch(pe_net):
     log_string('eval mean corners loss: %f' % (corners_loss_sum / float(num_batches)))
 
     log_string('eval box IoU (ground/3D): %f / %f' % \
-               (iou2ds_sum / float(num_batches * BATCH_SIZE), iou3ds_sum / \
-                float(num_batches * BATCH_SIZE)))
+               (iou2ds_sum / float(num_batches * BATCH_SIZE_EVAL), iou3ds_sum / \
+                float(num_batches * BATCH_SIZE_EVAL)))
     log_string('eval box estimation accuracy (IoU=0.5): %f' % \
-               (float(iou3d_correct_cnt_50) / float(num_batches * BATCH_SIZE)))
+               (float(iou3d_correct_cnt_50) / float(num_batches * BATCH_SIZE_EVAL)))
     log_string('eval box estimation accuracy (IoU=0.7): %f' % \
-               (float(iou3d_correct_cnt_70) / float(num_batches * BATCH_SIZE)))
+               (float(iou3d_correct_cnt_70) / float(num_batches * BATCH_SIZE_EVAL)))
 
     EPOCH_CNT += 1
 
