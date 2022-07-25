@@ -64,7 +64,7 @@ os.system('cp -r ../experiments/ ../kitti/ ../models/ ../kitti_eval %s' % (LOG_D
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
-prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/"
+prefix = "/home/ratul/data/dataset/kitti_fvnet2/refinement/"
 DATA_DIR = prefix + "training"
 TRAIN_LIST_FILE = prefix + "list_files/det_train_car_filtered.txt"
 TRAIN_LABEL_FILE = prefix + "list_files/label_train_car_filtered.txt"
@@ -154,6 +154,7 @@ def train_one_epoch(pe_net, optimizer):
         total_loss.requires_grad = True
         # print(total_loss.requires_grad)
 
+        optimizer.zero_grad()
         total_loss.backward()
         optimizer.step()
 
@@ -314,3 +315,19 @@ if __name__ == "__main__":
     log_string('pid: %s' % (str(os.getpid())))
     train()
     LOG_FOUT.close()
+
+    # from pympler import asizeof
+    #
+    # train_idxs = np.arange(0, len(TRAIN_DATASET))
+    # batch_idx = 0
+    # start_idx = batch_idx * BATCH_SIZE
+    # end_idx = (batch_idx + 1) * BATCH_SIZE
+    # batch_data = get_batch(TRAIN_DATASET, train_idxs, start_idx, end_idx, NUM_CHANNEL)
+    #
+    # print("SIZE OF TRAINING INPUT BATCH: ", asizeof.asizeof(batch_data))
+    #
+    # batch_data, batch_center, \
+    # batch_angle_cls, batch_angle_res, batch_size_res = [torch.from_numpy(data).to(DEVICE) for data in batch_data]
+    #
+    # print("SIZE OF TRAINING INPUT BATCH: ", asizeof.asizeof(batch_data.float()))
+    # print("SIZE OF TRAINING INPUT BATCH: ", batch_data.element_size()*batch_data.nelement())
