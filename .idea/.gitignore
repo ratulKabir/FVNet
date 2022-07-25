@@ -1,0 +1,5 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+/home/ubuntu/workstation/FVNet/PE-Net/experiments/outputs/*
+/home/ubuntu/workstation/FVNet/PG-Net/exp/*
