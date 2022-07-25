@@ -106,7 +106,7 @@ def train():
         train_one_epoch(pe_net, optimizer)
 
         # Save the variables to disk.
-        if epoch > 0 and epoch % 1 == 0:
+        if epoch > 0 and epoch % 5 == 0:
             eval_one_epoch(pe_net)
         if epoch > 0 and epoch % 20 == 0:
             save_path = saver.save(sess, os.path.join(LOG_DIR, "model_" + str(epoch) + ".ckpt"))
