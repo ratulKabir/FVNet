@@ -152,7 +152,6 @@ def train_one_epoch(pe_net, optimizer):
         h_res_loss, s_res_loss, corners_loss = loss_list
         total_loss = torch.sum(torch.as_tensor(loss_list))
         total_loss.requires_grad = True
-        # print(total_loss.requires_grad)
 
         optimizer.zero_grad()
         total_loss.backward()
@@ -240,9 +239,6 @@ def eval_one_epoch(pe_net):
     for batch_idx in range(num_batches):
         start_idx = batch_idx * BATCH_SIZE
         end_idx = (batch_idx + 1) * BATCH_SIZE
-        # batch_data, batch_center, \
-        # batch_angle_cls, batch_angle_res, batch_size_res = \
-        #     get_batch(VAL_DATASET, val_idxs, start_idx, end_idx, NUM_CHANNEL)
 
         batch_data = get_batch(VAL_DATASET, val_idxs, start_idx, end_idx, NUM_CHANNEL)
 
@@ -254,8 +250,6 @@ def eval_one_epoch(pe_net):
 
         for key in end_points.keys():
             end_points[key] = end_points[key].cpu()
-
-        # optimizer = torch.optim.Adam(pe_net.parameters())
 
         loss_list = MODEL.get_loss(batch_center, batch_angle_cls, batch_angle_res, batch_size_res, end_points, torch.device('cpu'))
         loss, center_loss, stage1_center_loss, h_cls_loss, \
@@ -315,19 +309,3 @@ if __name__ == "__main__":
     log_string('pid: %s' % (str(os.getpid())))
     train()
     LOG_FOUT.close()
-
-    # from pympler import asizeof
-    #
-    # train_idxs = np.arange(0, len(TRAIN_DATASET))
-    # batch_idx = 0
-    # start_idx = batch_idx * BATCH_SIZE
-    # end_idx = (batch_idx + 1) * BATCH_SIZE
-    # batch_data = get_batch(TRAIN_DATASET, train_idxs, start_idx, end_idx, NUM_CHANNEL)
-    #
-    # print("SIZE OF TRAINING INPUT BATCH: ", asizeof.asizeof(batch_data))
-    #
-    # batch_data, batch_center, \
-    # batch_angle_cls, batch_angle_res, batch_size_res = [torch.from_numpy(data).to(DEVICE) for data in batch_data]
-    #
-    # print("SIZE OF TRAINING INPUT BATCH: ", asizeof.asizeof(batch_data.float()))
-    # print("SIZE OF TRAINING INPUT BATCH: ", batch_data.element_size()*batch_data.nelement())
