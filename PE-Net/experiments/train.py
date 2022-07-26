@@ -68,9 +68,9 @@ LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
 if not os.path.exists("/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/"):
-    prefix = "/home/ratul/data/dataset/kitti_fvnet2/refinement/"
+    prefix = "/home/ratul/data/dataset/kitti_fvnet2/refinement/"    # laptop
 else:
-    prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/" # /home/ratul/data/dataset/kitti_fvnet2/refinement/
+    prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/" # ec2
 DATA_DIR = prefix + "training"
 TRAIN_LIST_FILE = prefix + "list_files/det_train_car_filtered.txt"
 TRAIN_LABEL_FILE = prefix + "list_files/label_train_car_filtered.txt"
@@ -82,7 +82,8 @@ VAL_DATASET = KittiDataset(NUM_POINT, DATA_DIR, VAL_LIST_FILE, VAL_LABEL_FILE)
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-TENSORBOARD_LOGS = 'outputs/tensorboard_logs'
+CHECKPOINT_PATH = BASE_DIR + "/outputs/saved_models/"
+TENSORBOARD_LOGS = BASE_DIR + '/outputs/tensorboard_logs'
 if not os.path.exists(TENSORBOARD_LOGS):
     os.makedirs(TENSORBOARD_LOGS)
 WRITER = SummaryWriter(log_dir=TENSORBOARD_LOGS)
@@ -108,18 +109,26 @@ def train():
         optimizer = torch.optim.Adam(pe_net.parameters())
     # train_op = optimizer.minimize(total_loss, global_step=batch)
 
+    global_val_loss = np.inf
     for epoch in range(MAX_EPOCH):
         log_string('**** EPOCH %03d ****' % (epoch))
         sys.stdout.flush()
 
         train_one_epoch(pe_net, optimizer, epoch)
+        val_loss = eval_one_epoch(pe_net, epoch)
 
-        # Save the variables to disk.
-        # if epoch > 0 and epoch % 5 == 0:
-        eval_one_epoch(pe_net, epoch)
-        if epoch > 0 and epoch % 20 == 0:
-            save_path = saver.save(sess, os.path.join(LOG_DIR, "model_" + str(epoch) + ".ckpt"))
-            log_string("Model saved in file: %s" % save_path)
+        if epoch > 0 and epoch % 5 == 0:
+            checkpoint = {'state_dict': pe_net.state_dict(),
+                          'optimizer': optimizer.state_dict()}
+            torch.save(checkpoint, CHECKPOINT_PATH + 'model_' + str(epoch) + '.pth')
+            torch.save(checkpoint, CHECKPOINT_PATH + 'model_last.pth')
+            log_string("Model saved in file: %s" % CHECKPOINT_PATH + 'model_' + str(epoch) + '.pth')
+        if val_loss < global_val_loss:
+            checkpoint = {'state_dict': pe_net.state_dict(),
+                          'optimizer': optimizer.state_dict()}
+            torch.save(checkpoint, CHECKPOINT_PATH + 'model_best.pth')
+            log_string("Model saved in file: %s" % CHECKPOINT_PATH + 'model_' + str(epoch) + '.pth')
+            global_val_loss = val_loss
     WRITER.close()
 
 
@@ -339,6 +348,8 @@ def eval_one_epoch(pe_net, epoch):
                (float(iou3d_correct_cnt_70) / float(num_batches * BATCH_SIZE_EVAL)))
 
     EPOCH_CNT += 1
+
+    return total_loss_sum / float(num_batches)
 
 
 def vis_point_cloud(pcd_numpy):
