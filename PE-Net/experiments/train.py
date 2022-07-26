@@ -115,7 +115,7 @@ def train():
 
         train_one_epoch(pe_net, optimizer, epoch)
         val_loss = eval_one_epoch(pe_net, epoch)
-        scheduler.step()
+        scheduler.step(val_loss)
 
         if epoch > 0 and epoch % 5 == 0:
             checkpoint = {'state_dict': pe_net.state_dict(),
