@@ -48,6 +48,7 @@ BATCH_SIZE_EVAL = FLAGS.batch_size_eval
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 NUM_CHANNEL = 4
+PRETRAINED_MODEL = True
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
@@ -98,16 +99,13 @@ def train():
     pe_net = MODEL.Front_PointNet(num_points)
     pe_net.to(DEVICE)
 
-    # Get training operator
-    # learning_rate = get_learning_rate(batch)
-    # tf.summary.scalar('learning_rate', learning_rate)
-    if OPTIMIZER == 'momentum':
-        # optimizer = tf.train.MomentumOptimizer(learning_rate,
-        #                                        momentum=MOMENTUM)
-        pass
-    elif OPTIMIZER == 'adam':
+    if OPTIMIZER == 'adam':
         optimizer = torch.optim.Adam(pe_net.parameters())
-    # train_op = optimizer.minimize(total_loss, global_step=batch)
+
+    if PRETRAINED_MODEL:
+        checkpoint = torch.load(CHECKPOINT_PATH + 'model_best.pth')
+        pe_net.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
 
     global_val_loss = np.inf
     for epoch in range(MAX_EPOCH):
