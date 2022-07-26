@@ -101,6 +101,7 @@ def train():
 
     if OPTIMIZER == 'adam':
         optimizer = torch.optim.Adam(pe_net.parameters())
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
 
     if PRETRAINED_MODEL:
         checkpoint = torch.load(CHECKPOINT_PATH + 'model_best.pth')
@@ -114,6 +115,7 @@ def train():
 
         train_one_epoch(pe_net, optimizer, epoch)
         val_loss = eval_one_epoch(pe_net, epoch)
+        scheduler.step()
 
         if epoch > 0 and epoch % 5 == 0:
             checkpoint = {'state_dict': pe_net.state_dict(),
