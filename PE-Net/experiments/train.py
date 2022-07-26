@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime
 
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # directory of the file: /home/ubuntu/workstation/FVNet/PE-Net/experiments
 ROOT_DIR = os.path.dirname(BASE_DIR)    # /home/ubuntu/workstation/FVNet/PE-Net
@@ -66,7 +67,10 @@ os.system('cp -r ../experiments/ ../kitti/ ../models/ ../kitti_eval %s' % (LOG_D
 LOG_FOUT = open(os.path.join(LOG_DIR, 'log_train.txt'), 'w')
 LOG_FOUT.write(str(FLAGS) + '\n')
 
-prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/" # /home/ratul/data/dataset/kitti_fvnet2/refinement/   
+if not os.path.exists("/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/"):
+    prefix = "/home/ratul/data/dataset/kitti_fvnet2/refinement/"
+else:
+    prefix = "/home/ubuntu/workstation/data/dataset/kitti_fvnet2/refinement/" # /home/ratul/data/dataset/kitti_fvnet2/refinement/
 DATA_DIR = prefix + "training"
 TRAIN_LIST_FILE = prefix + "list_files/det_train_car_filtered.txt"
 TRAIN_LABEL_FILE = prefix + "list_files/label_train_car_filtered.txt"
@@ -77,6 +81,11 @@ VAL_LABEL_FILE = prefix + "list_files/label_val_car_filtered.txt"
 VAL_DATASET = KittiDataset(NUM_POINT, DATA_DIR, VAL_LIST_FILE, VAL_LABEL_FILE)
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+TENSORBOARD_LOGS = 'outputs/tensorboard_logs'
+if not os.path.exists(TENSORBOARD_LOGS):
+    os.makedirs(TENSORBOARD_LOGS)
+WRITER = SummaryWriter(log_dir=TENSORBOARD_LOGS)
 
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
@@ -103,17 +112,18 @@ def train():
         log_string('**** EPOCH %03d ****' % (epoch))
         sys.stdout.flush()
 
-        train_one_epoch(pe_net, optimizer)
+        train_one_epoch(pe_net, optimizer, epoch)
 
         # Save the variables to disk.
-        if epoch > 0 and epoch % 5 == 0:
-            eval_one_epoch(pe_net)
+        # if epoch > 0 and epoch % 5 == 0:
+        eval_one_epoch(pe_net, epoch)
         if epoch > 0 and epoch % 20 == 0:
             save_path = saver.save(sess, os.path.join(LOG_DIR, "model_" + str(epoch) + ".ckpt"))
             log_string("Model saved in file: %s" % save_path)
+    WRITER.close()
 
 
-def train_one_epoch(pe_net, optimizer):
+def train_one_epoch(pe_net, optimizer, epoch):
     is_training = True
     log_string(str(datetime.now()))
 
@@ -153,8 +163,6 @@ def train_one_epoch(pe_net, optimizer):
         loss, center_loss, stage1_center_loss, h_cls_loss, \
         h_res_loss, s_res_loss, corners_loss = loss_list
         total_loss = loss
-        # total_loss = torch.sum(torch.as_tensor(loss_list))
-        # total_loss.requires_grad = True
 
         optimizer.zero_grad()
         loss.backward()
@@ -189,6 +197,16 @@ def train_one_epoch(pe_net, optimizer):
         iou3d_correct_cnt_50 += np.sum(iou3ds >= 0.5)
         iou3d_correct_cnt_70 += np.sum(iou3ds >= 0.7)
 
+        WRITER.add_scalar('Total loss/train', loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Center loss/train', center_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Stage 1 center loss/train', stage1_center_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Angle class loss/train', h_cls_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Angle res loss/train', h_res_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Size res loss/train', s_res_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Corners loss/train', corners_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Box estimation accuracy (IoU=0.5)/train', iou3d_correct_cnt_50, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Box estimation accuracy (IoU=0.7)/train', iou3d_correct_cnt_70, (batch_idx+1) + (BATCH_SIZE*epoch))
+
         internal = 50
         if (batch_idx + 1) % internal == 0:
             log_string(' -- %03d / %03d --' % (batch_idx + 1, num_batches))
@@ -221,7 +239,7 @@ def train_one_epoch(pe_net, optimizer):
             iou3d_correct_cnt_70 = 0
 
 
-def eval_one_epoch(pe_net):
+def eval_one_epoch(pe_net, epoch):
     global EPOCH_CNT
     is_training = False
     log_string(str(datetime.now()))
@@ -293,6 +311,16 @@ def eval_one_epoch(pe_net):
         iou3ds_sum += np.sum(iou3ds)
         iou3d_correct_cnt_50 += np.sum(iou3ds >= 0.5)
         iou3d_correct_cnt_70 += np.sum(iou3ds >= 0.7)
+
+        WRITER.add_scalar('Total loss/val', loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Center loss/val', center_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Stage 1 center loss/val', stage1_center_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Angle class loss/val', h_cls_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Angle res loss/val', h_res_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Size res loss/val', s_res_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Corners loss/val', corners_loss, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Box estimation accuracy (IoU=0.5)/val', iou3d_correct_cnt_50, (batch_idx+1) + (BATCH_SIZE*epoch))
+        WRITER.add_scalar('Box estimation accuracy (IoU=0.7)/val', iou3d_correct_cnt_70, (batch_idx+1) + (BATCH_SIZE*epoch))
 
     log_string('eval mean total loss: %f' % (total_loss_sum / float(num_batches)))
     log_string('eval mean center loss: %f' % (center_loss_sum / float(num_batches)))
