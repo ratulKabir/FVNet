@@ -2,7 +2,7 @@
 /shelf/
 /workspace.xml
 PE-Net/experiments/outputs/*
-PE-Net/outputs/*
+PE-Net/experiments/outputs/*
 PG-Net/exp/*
 .idea
 venv

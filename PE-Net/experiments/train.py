@@ -109,7 +109,7 @@ def train():
 
     global_val_loss = np.inf
     for epoch in range(MAX_EPOCH):
-        log_string('**** EPOCH %03d ****' % (epoch))
+        log_string('**** EPOCH %03d ****' % epoch)
         sys.stdout.flush()
 
         train_one_epoch(pe_net, optimizer, epoch)
@@ -250,7 +250,7 @@ def eval_one_epoch(pe_net, epoch):
     global EPOCH_CNT
     is_training = False
     log_string(str(datetime.now()))
-    log_string('---- EPOCH %03d EVALUATION ----' % (EPOCH_CNT))
+    log_string('---- EPOCH %03d EVALUATION ----' % EPOCH_CNT)
     val_idxs = np.arange(0, len(VAL_DATASET))
     num_batches = int(np.ceil(len(VAL_DATASET) / BATCH_SIZE_EVAL))
 
