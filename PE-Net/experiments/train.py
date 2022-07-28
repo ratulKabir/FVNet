@@ -34,6 +34,7 @@ parser.add_argument('--optimizer', default='adam', help='adam')
 parser.add_argument('--decay_step', type=int, default=800000, help='Decay step for lr decay')
 parser.add_argument('--decay_rate', type=float, default=0.5, help='Decay rate for lr decay')
 parser.add_argument('--restore_model_path', default=None, help='Restore model path e.g. log/model.ckpt')
+parser.add_argument('--use_pretrained_model', default=False, help='Use pre trained model to start training')
 FLAGS = parser.parse_args()
 
 EPOCH_CNT = 0
@@ -48,7 +49,7 @@ BATCH_SIZE_EVAL = FLAGS.batch_size_eval
 DECAY_STEP = FLAGS.decay_step
 DECAY_RATE = FLAGS.decay_rate
 NUM_CHANNEL = 4
-PRETRAINED_MODEL = True
+PRETRAINED_MODEL = FLAGS.use_pretrained_model
 
 BN_INIT_DECAY = 0.5
 BN_DECAY_DECAY_RATE = 0.5
