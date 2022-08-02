@@ -36,7 +36,7 @@ class Center_Regression_Net(torch.nn.Module):
         # self.fc0 = torch_util.FCLayer(512, 512)
         self.fc1 = torch_util.FCLayer(256, 256)
         self.fc2 = torch_util.FCLayer(256, 128)
-        self.fc3 = torch_util.FCLayer(128, 3)
+        self.fc3 = torch_util.FCLayer(128, 3, activation_fn=None)
 
     def forward(self, x):
         x = torch.unsqueeze(x, 3)
@@ -75,7 +75,7 @@ class Box_Estimation_Net_3D(torch.nn.Module):
         self.fc1 = torch_util.FCLayer(512, 512)
         self.fc2 = torch_util.FCLayer(512, 256)
         # self.fc3 = torch_util.FCLayer(256, 128)
-        self.fc3 = torch_util.FCLayer(256, 3 + NUM_ANGLE_BIN * 2 + 3)
+        self.fc3 = torch_util.FCLayer(256, 3 + NUM_ANGLE_BIN * 2 + 3, activation_fn=None)
 
     def forward(self, x):
         x = torch.unsqueeze(x, 3)

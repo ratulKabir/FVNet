@@ -366,13 +366,17 @@ class FCLayer(torch.nn.Module):
             self.bn = torch.nn.BatchNorm2d(num_output_channels)
         else:
             self.bn = bn
-        self.act = activation_fn()
+        if activation_fn:
+            self.act = activation_fn()
+        else:
+            self.act = activation_fn
 
     def forward(self, inp):
         x = self.linear(inp)
         if self.bn:
             x = self.bn(x)
-        x = self.act(x)
+        if self.act:
+            x = self.act(x)
         return x
 
 
